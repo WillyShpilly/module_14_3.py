@@ -4,7 +4,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-api = "8139727552:AAEiXla3iBzqFZazNWnvSDm_Ei24uca9yoE"
+api = ""
 bot = Bot(token=api)
 dp = Dispatcher(bot, storage=MemoryStorage())
 
@@ -134,7 +134,7 @@ async def set_male(message, state):
 
 @dp.message_handler()
 async def all_massages(message):
-    await message.answer('Введите команду /start, чтобы начать общение.')
+    await message.answer('Моя твоя не понимать!!!!!!/start, чтобы начать общение.')
 
 
 if __name__ == "__main__":
