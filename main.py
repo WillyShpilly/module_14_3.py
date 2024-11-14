@@ -1,81 +1,17 @@
-from aiogram import Bot, Dispatcher, executor
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-api = ""
-bot = Bot(token=api)
-dp = Dispatcher(bot, storage=MemoryStorage())
-
-start_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [
-            KeyboardButton(text='Информация'),
-            KeyboardButton(text='Рассчитать')
-        ],
-        [KeyboardButton(text='Купить')]
-    ], resize_keyboard=True
-)
-
-check_menu = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="Рассчитать норму калорий", callback_data="calories")],
-        [InlineKeyboardButton(text="Формулы расчёта", callback_data="formulas")]
-    ]
-)
-
-buy_menu = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [
-            InlineKeyboardButton(text="Product1", callback_data="product_buying"),
-            InlineKeyboardButton(text="Product2", callback_data="product_buying"),
-            InlineKeyboardButton(text="Product3", callback_data="product_buying"),
-            InlineKeyboardButton(text="Product4", callback_data="product_buying")
-        ]
-    ]
-)
+from aiogram import Bot, Dispatcher, F
+from aiogram.filters import Command, CommandStart
+from aiogram.types import Message, CallbackQuery, FSInputFile
+from keyboards import kb, inline_kb, inline_buy
+from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.memory import MemoryStorage
 
 
-@dp.message_handler(commands=['start'])
-async def start(message):
-    print('стартуем! я сказала стартуем!!!')
-    await message.answer("Привет! Я бот помогающий твоему здоровью.", reply_markup=start_menu)
+BOT_TOKEN = '8139727552:AAEiXla3iBzqFZazNWnvSDm_Ei24uca9yoE'
 
-
-@dp.message_handler(text='Купить')
-async def get_buying_list(message):
-    with open("image1.jpg", "rb") as One:
-        await message.answer_photo(One, f"Название: Product1 | Описание: One | Цена: {1*100}")
-    with open("image2.jpg", "rb") as Two:
-        await message.answer_photo(Two, f"Название: Product2 | Описание: Two | Цена: {2*100}")
-    with open("image3.jpg", "rb") as Three:
-        await message.answer_photo(Three, f"Название: Product3 | Описание: Three | Цена: {3*100}")
-    with open("image4.jpg", "rb") as Four:
-        await message.answer_photo(Four, f"Название: Product4 | Описание: Four | Цена: {4*100}")
-    await message.answer("Выберите продукт для покупки:", reply_markup=buy_menu)
-
-
-@dp.callback_query_handler(text="product_buying")
-async def send_confirm_message(call):
-    await call.message.answer("Вы успешно приобрели продукт!")
-    await call.answer()
-
-
-@dp.message_handler(text="Рассчитать")
-async def main_menu(message):
-    await message.answer("Выберите опцию", reply_markup=check_menu)
-
-
-@dp.callback_query_handler(text="formulas")
-async def get_formulas(call):
-    formula_message = (
-        "Формула Миффлина-Сан Жеора:\n"
-        "Для мужчин: 10 * вес (кг) + 6.25 * рост (см) - 5 * возраст (лет) + 5\n"
-        "Для женщин: 10 * вес (кг) + 6.25 * рост (см) - 5 * возраст (лет) - 161"
-    )
-    await call.message.answer(formula_message)
-    await call.answer()
+storage = MemoryStorage()
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(storage=storage)
 
 
 class UserState(StatesGroup):
@@ -85,57 +21,86 @@ class UserState(StatesGroup):
     male = State()
 
 
-@dp.callback_query_handler(text="calories")
-async def set_age(call):
-    await call.message.answer("Введите свой возраст:")
-    await UserState.age.set()
-    await call.answer()
+
+@dp.message(Command(commands='start'))
+async def process_start_command(message: Message):
+    print('Readey, stady, go!!!')
+    await message.answer("Привет! Я бот помогающий твоему здоровью.", reply_markup=kb)
 
 
-@dp.message_handler(state=UserState.age)
-async def set_growth(message, state):
-    await state.update_data(age=int(message.text))
-    await message.answer("Введите свой рост:")
-    await UserState.growth.set()
+@dp.message(F.text == 'Рассчитать') # попробовать тексту дату
+async def main_menu(message: Message):
+    await message.answer('Выберите опцию:', reply_markup=inline_kb)
 
 
-@dp.message_handler(state=UserState.growth)
-async def set_weight(message, state):
-    await state.update_data(growth=int(message.text))
-    await message.answer("Введите свой вес:")
-    await UserState.weight.set()
+@dp.message(F.text == 'Купить')
+async def get_buying_list(message: Message):
+    for i in range(1, 5):  # Измените диапазон в зависимости от количества фотографий
+        photo = f"image{i}.jpg"
+        await message.answer_photo(photo=FSInputFile(photo), caption=f'Название: Product {i} | Описание: описание {i} | Цена: {i * 100}')
+    await message.answer('Выберите продукт для покупки:', reply_markup=inline_buy)
+    
+
+@dp.callback_query(F.data == 'product_buying')
+async def send_confirm_message(callback: CallbackQuery):
+    await callback.message.answer('Вы успешно приобрели продукт!')
 
 
-@dp.message_handler(state=UserState.weight)
-async def set_weight(message, state):
-    await state.update_data(weight=int(message.text))
-    await message.answer('Укажите свой пол: (Ж)Жентельмен или (М)Мадам')
-    await UserState.male.set()
+@dp.callback_query(F.data == 'formulas')
+async def get_formulas(callback: CallbackQuery):
+    await callback.message.answer(
+        "Формула Миффлина-Сан Жеора:\n"
+        "Для жентельменов: 10 * вес (кг) + 6.25 * рост (см) - 5 * возраст (лет) + 5\n"
+        "Для мадамов: 10 * вес (кг) + 6.25 * рост (см) - 5 * возраст (лет) - 161"
+    )
 
 
-@dp.message_handler(state=UserState.male)
-async def set_male(message, state):
+@dp.callback_query(F.data == 'calories')
+async def set_age(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(UserState.age)
+    await callback.message.answer('Введите свой возраст:')
+
+
+@dp.message(UserState.age)
+async def set_growth(message: Message, state: FSMContext):
+    await state.update_data(age=message.text)
+    await state.set_state(UserState.growth)
+    await message.answer('Введите свой рост в сантиметрах:')
+
+
+@dp.message(UserState.growth)
+async def set_weigth(message: Message, state: FSMContext):
+    await state.update_data(growth=message.text)
+    await state.set_state(UserState.weight)
+    await message.answer('Введите свой вес в килограммах:')    
+
+
+@dp.message(UserState.weight)
+async def set_male(message: Message, state: FSMContext):
+    await state.update_data(weight=message.text)
+    await state.set_state(UserState.male)
+    await message.answer('Укажите свой пол: (Ж)-Жентельмен или (М)-Мадам')
+
+
+@dp.message(UserState.male)
+async def send_calories(message: Message, state: FSMContext):
     await state.update_data(male=message.text)
-
     data = await state.get_data()
-    age = data['age']
-    growth = data['growth']
-    weight = data['weight']
-    male = data['male']
 
-    if male == 'ж' or 'Ж':
-        calories = 10 * weight + 6.25 * growth - 5 * age + 5
-    elif male == 'м' or 'М':
-        calories = 10 * weight + 6.25 * growth - 5 * age - 161
+    if data['male'].lower() == 'ж':
+        calories = int(data['weight']) * 10 + int(data['growth']) * 6.25 - int(data['age']) * 5 + 5
+    elif data['male'].lower() == 'м':
+        calories = int(data['weight']) * 10 + int(data['growth']) * 6.25 - int(data['age']) * 5 - 161
 
-    await message.answer(f'Ваша норма калорий: {calories:.2f} ккал в сутки.')
+    await message.answer(f'Ваша суточная норма калорий:{calories:.2f}')
+    await state.clear()
 
 
+@dp.message()
+async def send_echo(message: Message):
+    await message.reply(text='Еще разок, мамаша!')
 
-@dp.message_handler()
-async def all_massages(message):
-    await message.answer('Моя твоя не понимать!!!!!!/start, чтобы начать общение.')
 
 
-if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+if __name__ == '__main__':
+    dp.run_polling(bot)   
