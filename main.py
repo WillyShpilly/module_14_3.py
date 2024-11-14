@@ -5,9 +5,12 @@ from keyboards import kb, inline_kb, inline_buy
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
+from crud_functions import initiate_db
 
 
-BOT_TOKEN = '8139727552:AAEiXla3iBzqFZazNWnvSDm_Ei24uca9yoE'
+initiate_db()
+
+BOT_TOKEN = ''
 
 storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)
